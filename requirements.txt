@@ -1,6 +1,7 @@
 pytest-cov
 pytest-randomly
-pytest
+pytest>=7.0
 pyflakes
 pylint
 tox
+wcag-contrast-ratio

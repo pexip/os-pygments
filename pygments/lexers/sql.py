@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     pygments.lexers.sql
     ~~~~~~~~~~~~~~~~~~~
@@ -34,7 +33,7 @@
     The ``tests/examplefiles`` contains a few test files with data to be
     parsed by these lexers.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -62,6 +61,7 @@ __all__ = ['PostgresLexer', 'PlPgsqlLexer', 'PostgresConsoleLexer',
            'SqliteConsoleLexer', 'RqlLexer']
 
 line_re  = re.compile('.*?\n')
+sqlite_prompt_re = re.compile(r'^(?:sqlite|   ...)>(?= )')
 
 language_re = re.compile(r"\s+LANGUAGE\s+'?(\w+)'?", re.IGNORECASE)
 
@@ -102,8 +102,7 @@ def language_callback(lexer, match):
     yield (match.start(3), String, match.group(3))
     # 4 = string contents
     if lx:
-        for x in lx.get_tokens_unprocessed(match.group(4)):
-            yield x
+        yield from lx.get_tokens_unprocessed(match.group(4))
     else:
         yield (match.start(4), String, match.group(4))
     # 5 = $, 6 = delimiter, 7 = $
@@ -163,7 +162,7 @@ class PostgresLexer(PostgresBase, RegexLexer):
     flags = re.IGNORECASE
     tokens = {
         'root': [
-            (r'\s+', Text),
+            (r'\s+', Whitespace),
             (r'--.*\n?', Comment.Single),
             (r'/\*', Comment.Multiline, 'multiline-comments'),
             (r'(' + '|'.join(s.replace(" ", r"\s+")
@@ -256,7 +255,7 @@ class PsqlRegexLexer(PostgresBase, RegexLexer):
         (r'\\[^\s]+', Keyword.Pseudo, 'psql-command'))
     tokens['psql-command'] = [
         (r'\n', Text, 'root'),
-        (r'\s+', Text),
+        (r'\s+', Whitespace),
         (r'\\[^\s]+', Keyword.Pseudo),
         (r""":(['"]?)[a-z]\w*\b\1""", Name.Variable),
         (r"'(''|[^'])*'", String.Single),
@@ -383,7 +382,7 @@ class SqlLexer(RegexLexer):
     flags = re.IGNORECASE
     tokens = {
         'root': [
-            (r'\s+', Text),
+            (r'\s+', Whitespace),
             (r'--.*\n?', Comment.Single),
             (r'/\*', Comment.Multiline, 'multiline-comments'),
             (words((
@@ -397,14 +396,14 @@ class SqlLexer(RegexLexer):
                 'CHARACTERISTICS', 'CHARACTER_LENGTH', 'CHARACTER_SET_CATALOG',
                 'CHARACTER_SET_NAME', 'CHARACTER_SET_SCHEMA', 'CHAR_LENGTH', 'CHECK',
                 'CHECKED', 'CHECKPOINT', 'CLASS', 'CLASS_ORIGIN', 'CLOB', 'CLOSE',
-                'CLUSTER', 'COALSECE', 'COBOL', 'COLLATE', 'COLLATION',
+                'CLUSTER', 'COALESCE', 'COBOL', 'COLLATE', 'COLLATION',
                 'COLLATION_CATALOG', 'COLLATION_NAME', 'COLLATION_SCHEMA', 'COLUMN',
                 'COLUMN_NAME', 'COMMAND_FUNCTION', 'COMMAND_FUNCTION_CODE', 'COMMENT',
                 'COMMIT', 'COMMITTED', 'COMPLETION', 'CONDITION_NUMBER', 'CONNECT',
                 'CONNECTION', 'CONNECTION_NAME', 'CONSTRAINT', 'CONSTRAINTS',
                 'CONSTRAINT_CATALOG', 'CONSTRAINT_NAME', 'CONSTRAINT_SCHEMA',
                 'CONSTRUCTOR', 'CONTAINS', 'CONTINUE', 'CONVERSION', 'CONVERT',
-                'COPY', 'CORRESPONTING', 'COUNT', 'CREATE', 'CREATEDB', 'CREATEUSER',
+                'COPY', 'CORRESPONDING', 'COUNT', 'CREATE', 'CREATEDB', 'CREATEUSER',
                 'CROSS', 'CUBE', 'CURRENT', 'CURRENT_DATE', 'CURRENT_PATH',
                 'CURRENT_ROLE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER',
                 'CURSOR', 'CURSOR_NAME', 'CYCLE', 'DATA', 'DATABASE',
@@ -440,9 +439,9 @@ class SqlLexer(RegexLexer):
                 'OPEN', 'OPERATION', 'OPERATOR', 'OPTION', 'OPTIONS', 'OR', 'ORDER',
                 'ORDINALITY', 'OUT', 'OUTER', 'OUTPUT', 'OVERLAPS', 'OVERLAY',
                 'OVERRIDING', 'OWNER', 'PAD', 'PARAMETER', 'PARAMETERS', 'PARAMETER_MODE',
-                'PARAMATER_NAME', 'PARAMATER_ORDINAL_POSITION',
+                'PARAMETER_NAME', 'PARAMETER_ORDINAL_POSITION',
                 'PARAMETER_SPECIFIC_CATALOG', 'PARAMETER_SPECIFIC_NAME',
-                'PARAMATER_SPECIFIC_SCHEMA', 'PARTIAL', 'PASCAL', 'PENDANT', 'PERIOD', 'PLACING',
+                'PARAMETER_SPECIFIC_SCHEMA', 'PARTIAL', 'PASCAL', 'PENDANT', 'PERIOD', 'PLACING',
                 'PLI', 'POSITION', 'POSTFIX', 'PRECEEDS', 'PRECISION', 'PREFIX', 'PREORDER',
                 'PREPARE', 'PRESERVE', 'PRIMARY', 'PRIOR', 'PRIVILEGES', 'PROCEDURAL',
                 'PROCEDURE', 'PUBLIC', 'READ', 'READS', 'RECHECK', 'RECURSIVE', 'REF',
@@ -462,8 +461,8 @@ class SqlLexer(RegexLexer):
                 'SUBLIST', 'SUBSTRING', 'SUCCEEDS', 'SUM', 'SYMMETRIC', 'SYSID', 'SYSTEM',
                 'SYSTEM_USER', 'TABLE', 'TABLE_NAME', ' TEMP', 'TEMPLATE', 'TEMPORARY',
                 'TERMINATE', 'THAN', 'THEN', 'TIME', 'TIMESTAMP', 'TIMEZONE_HOUR',
-                'TIMEZONE_MINUTE', 'TO', 'TOAST', 'TRAILING', 'TRANSATION',
-                'TRANSACTIONS_COMMITTED', 'TRANSACTIONS_ROLLED_BACK', 'TRANSATION_ACTIVE',
+                'TIMEZONE_MINUTE', 'TO', 'TOAST', 'TRAILING', 'TRANSACTION',
+                'TRANSACTIONS_COMMITTED', 'TRANSACTIONS_ROLLED_BACK', 'TRANSACTION_ACTIVE',
                 'TRANSFORM', 'TRANSFORMS', 'TRANSLATE', 'TRANSLATION', 'TREAT', 'TRIGGER',
                 'TRIGGER_CATALOG', 'TRIGGER_NAME', 'TRIGGER_SCHEMA', 'TRIM', 'TRUE',
                 'TRUNCATE', 'TRUSTED', 'TYPE', 'UNCOMMITTED', 'UNDER', 'UNENCRYPTED',
@@ -497,8 +496,8 @@ class SqlLexer(RegexLexer):
         ]
     }
 
-    def analyse_text(text):
-        return 0.01
+    def analyse_text(self, text):
+        return
 
 
 class TransactSqlLexer(RegexLexer):
@@ -514,8 +513,8 @@ class TransactSqlLexer(RegexLexer):
     filenames = ['*.sql']
     mimetypes = ['text/x-tsql']
 
-    # Use re.UNICODE to allow non ASCII letters in names.
-    flags = re.IGNORECASE | re.UNICODE
+    flags = re.IGNORECASE
+
     tokens = {
         'root': [
             (r'\s+', Whitespace),
@@ -601,7 +600,7 @@ class MySqlLexer(RegexLexer):
     flags = re.IGNORECASE
     tokens = {
         'root': [
-            (r'\s+', Text),
+            (r'\s+', Whitespace),
 
             # Comments
             (r'(?:#|--\s+).*', Comment.Single),
@@ -620,7 +619,7 @@ class MySqlLexer(RegexLexer):
             (r'[0-9]+\.[0-9]*(e[+-]?[0-9]+)?', Number.Float),  # Mandatory integer, optional fraction and exponent
             (r'[0-9]*\.[0-9]+(e[+-]?[0-9]+)?', Number.Float),  # Mandatory fraction, optional integer and exponent
             (r'[0-9]+e[+-]?[0-9]+', Number.Float),  # Exponents with integer significands are still floats
-            (r'[0-9]+', Number.Integer),
+            (r'[0-9]+(?=[^0-9a-z$_\u0080-\uffff])', Number.Integer),  # Integers that are not in a schema object name
 
             # Date literals
             (r"\{\s*d\s*(?P<quote>['\"])\s*\d{2}(\d{2})?.?\d{2}.?\d{2}\s*(?P=quote)\s*\}",
@@ -657,14 +656,14 @@ class MySqlLexer(RegexLexer):
 
             # Exceptions; these words tokenize differently in different contexts.
             (r'\b(set)(?!\s*\()', Keyword),
-            (r'\b(character)(\s+)(set)\b', bygroups(Keyword, Text, Keyword)),
+            (r'\b(character)(\s+)(set)\b', bygroups(Keyword, Whitespace, Keyword)),
             # In all other known cases, "SET" is tokenized by MYSQL_DATATYPES.
 
             (words(MYSQL_CONSTANTS, prefix=r'\b', suffix=r'\b'), Name.Constant),
             (words(MYSQL_DATATYPES, prefix=r'\b', suffix=r'\b'), Keyword.Type),
             (words(MYSQL_KEYWORDS, prefix=r'\b', suffix=r'\b'), Keyword),
             (words(MYSQL_FUNCTIONS, prefix=r'\b', suffix=r'\b(\s*)(\()'),
-             bygroups(Name.Function, Text, Punctuation)),
+             bygroups(Name.Function, Whitespace, Punctuation)),
 
             # Schema object names
             #
@@ -673,7 +672,7 @@ class MySqlLexer(RegexLexer):
             # numeric literals have already been handled above.
             #
             ('[0-9a-z$_\u0080-\uffff]+', Name),
-            (r'`', Name, 'schema-object-name'),
+            (r'`', Name.Quoted, 'schema-object-name'),
 
             # Punctuation
             (r'[(),.;]', Punctuation),
@@ -737,15 +736,15 @@ class MySqlLexer(RegexLexer):
         # Schema object name substates
         # ----------------------------
         #
-        # Backtick-quoted schema object names support escape characters.
-        # It may be desirable to tokenize escape sequences differently,
-        # but currently Pygments does not have an obvious token type for
-        # this unique situation (for example, "Name.Escape").
+        # "Name.Quoted" and "Name.Quoted.Escape" are non-standard but
+        # formatters will style them as "Name" by default but add
+        # additional styles based on the token name. This gives users
+        # flexibility to add custom styles as desired.
         #
         'schema-object-name': [
-            (r'[^`\\]+', Name),
-            (r'(?:\\\\|\\`|``)', Name),  # This could be an escaped name token type.
-            (r'`', Name, '#pop'),
+            (r'[^`]+', Name.Quoted),
+            (r'``', Name.Quoted.Escape),
+            (r'`', Name.Quoted, '#pop'),
         ],
     }
 
@@ -787,9 +786,12 @@ class SqliteConsoleLexer(Lexer):
         insertions = []
         for match in line_re.finditer(data):
             line = match.group()
-            if line.startswith('sqlite> ') or line.startswith('   ...> '):
+            prompt_match = sqlite_prompt_re.match(line)
+            if prompt_match is not None:
                 insertions.append((len(curcode),
-                                   [(0, Generic.Prompt, line[:8])]))
+                                   [(0, Generic.Prompt, line[:7])]))
+                insertions.append((len(curcode),
+                                   [(7, Whitespace, ' ')]))
                 curcode += line[8:]
             else:
                 if curcode:
@@ -810,11 +812,10 @@ class RqlLexer(RegexLexer):
     """
     Lexer for Relation Query Language.
 
-    `RQL <http://www.logilab.org/project/rql>`_
-
     .. versionadded:: 2.0
     """
     name = 'RQL'
+    url = 'http://www.logilab.org/project/rql'
     aliases = ['rql']
     filenames = ['*.rql']
     mimetypes = ['text/x-rql']
@@ -822,7 +823,7 @@ class RqlLexer(RegexLexer):
     flags = re.IGNORECASE
     tokens = {
         'root': [
-            (r'\s+', Text),
+            (r'\s+', Whitespace),
             (r'(DELETE|SET|INSERT|UNION|DISTINCT|WITH|WHERE|BEING|OR'
              r'|AND|NOT|GROUPBY|HAVING|ORDERBY|ASC|DESC|LIMIT|OFFSET'
              r'|TODAY|NOW|TRUE|FALSE|NULL|EXISTS)\b', Keyword),
