@@ -1,29 +1,25 @@
-# -*- coding: utf-8 -*-
 """
     pygments.lexers.shell
     ~~~~~~~~~~~~~~~~~~~~~
 
     Lexers for various shells.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 import re
 
 from pygments.lexer import Lexer, RegexLexer, do_insertions, bygroups, \
-    include, default, this, using, words
-from pygments.token import Punctuation, \
+    include, default, this, using, words, line_re
+from pygments.token import Punctuation, Whitespace, \
     Text, Comment, Operator, Keyword, Name, String, Number, Generic
 from pygments.util import shebang_matches
-
 
 __all__ = ['BashLexer', 'BashSessionLexer', 'TcshLexer', 'BatchLexer',
            'SlurmBashLexer', 'MSDOSSessionLexer', 'PowerShellLexer',
            'PowerShellSessionLexer', 'TcshSessionLexer', 'FishShellLexer',
            'ExeclineLexer']
-
-line_re = re.compile('.*?\n')
 
 
 class BashLexer(RegexLexer):
@@ -38,6 +34,7 @@ class BashLexer(RegexLexer):
     filenames = ['*.sh', '*.ksh', '*.bash', '*.ebuild', '*.eclass',
                  '*.exheres-0', '*.exlib', '*.zsh',
                  '.bashrc', 'bashrc', '.bash_*', 'bash_*', 'zshrc', '.zshrc',
+                 '.kshrc', 'kshrc',
                  'PKGBUILD']
     mimetypes = ['application/x-sh', 'application/x-shellscript', 'text/x-shellscript']
 
@@ -57,9 +54,9 @@ class BashLexer(RegexLexer):
             (r'\$', Text),
         ],
         'basic': [
-            (r'\b(if|fi|else|while|do|done|for|then|return|function|case|'
+            (r'\b(if|fi|else|while|in|do|done|for|then|return|function|case|'
              r'select|continue|until|esac|elif)(\s*)\b',
-             bygroups(Keyword, Text)),
+             bygroups(Keyword, Whitespace)),
             (r'\b(alias|bg|bind|break|builtin|caller|cd|command|compgen|'
              r'complete|declare|dirs|disown|echo|enable|eval|exec|exit|'
              r'export|false|fc|fg|getopts|hash|help|history|jobs|kill|let|'
@@ -70,7 +67,7 @@ class BashLexer(RegexLexer):
             (r'\A#!.+\n', Comment.Hashbang),
             (r'#.*\n', Comment.Single),
             (r'\\[\w\W]', String.Escape),
-            (r'(\b\w+)(\s*)(\+?=)', bygroups(Name.Variable, Text, Operator)),
+            (r'(\b\w+)(\s*)(\+?=)', bygroups(Name.Variable, Whitespace, Operator)),
             (r'[\[\]{}()=]', Operator),
             (r'<<<', Operator),  # here-string
             (r'<<-?\s*(\'?)\\?(\w+)[\w\W]+?\2', String),
@@ -84,7 +81,7 @@ class BashLexer(RegexLexer):
             (r';', Punctuation),
             (r'&', Punctuation),
             (r'\|', Punctuation),
-            (r'\s+', Text),
+            (r'\s+', Whitespace),
             (r'\d+\b', Number),
             (r'[^=\s\[\]{}()$"\'`\\<&|;]+', Text),
             (r'<', Text),
@@ -149,13 +146,15 @@ class SlurmBashLexer(BashLexer):
             else:
                 yield index, token, value
 
+
 class ShellSessionBaseLexer(Lexer):
     """
-    Base lexer for simplistic shell sessions.
+    Base lexer for shell sessions.
 
     .. versionadded:: 2.1
     """
 
+    _bare_continuation = False
     _venv = re.compile(r'^(\([^)]*\))(\s*)')
 
     def get_tokens_unprocessed(self, text):
@@ -168,20 +167,16 @@ class ShellSessionBaseLexer(Lexer):
 
         for match in line_re.finditer(text):
             line = match.group()
-            if backslash_continuation:
-                curcode += line
-                backslash_continuation = curcode.endswith('\\\n')
-                continue
 
             venv_match = self._venv.match(line)
             if venv_match:
                 venv = venv_match.group(1)
                 venv_whitespace = venv_match.group(2)
                 insertions.append((len(curcode),
-                    [(0, Generic.Prompt.VirtualEnv, venv)]))
+                                   [(0, Generic.Prompt.VirtualEnv, venv)]))
                 if venv_whitespace:
                     insertions.append((len(curcode),
-                        [(0, Text, venv_whitespace)]))
+                                       [(0, Text, venv_whitespace)]))
                 line = line[venv_match.end():]
 
             m = self._ps1rgx.match(line)
@@ -196,11 +191,20 @@ class ShellSessionBaseLexer(Lexer):
                                    [(0, Generic.Prompt, m.group(1))]))
                 curcode += m.group(2)
                 backslash_continuation = curcode.endswith('\\\n')
-            elif line.startswith(self._ps2):
-                insertions.append((len(curcode),
-                                   [(0, Generic.Prompt, line[:len(self._ps2)])]))
-                curcode += line[len(self._ps2):]
+            elif backslash_continuation:
+                if line.startswith(self._ps2):
+                    insertions.append((len(curcode),
+                                       [(0, Generic.Prompt,
+                                         line[:len(self._ps2)])]))
+                    curcode += line[len(self._ps2):]
+                else:
+                    curcode += line
                 backslash_continuation = curcode.endswith('\\\n')
+            elif self._bare_continuation and line.startswith(self._ps2):
+                insertions.append((len(curcode),
+                                   [(0, Generic.Prompt,
+                                     line[:len(self._ps2)])]))
+                curcode += line[len(self._ps2):]
             else:
                 if insertions:
                     toks = innerlexer.get_tokens_unprocessed(curcode)
@@ -217,7 +221,8 @@ class ShellSessionBaseLexer(Lexer):
 
 class BashSessionLexer(ShellSessionBaseLexer):
     """
-    Lexer for simplistic shell sessions.
+    Lexer for Bash shell sessions, i.e. command lines, including a
+    prompt, interspersed with output.
 
     .. versionadded:: 1.1
     """
@@ -230,8 +235,8 @@ class BashSessionLexer(ShellSessionBaseLexer):
     _innerLexerCls = BashLexer
     _ps1rgx = re.compile(
         r'^((?:(?:\[.*?\])|(?:\(\S+\))?(?:| |sh\S*?|\w+\S+[@:]\S+(?:\s+\S+)' \
-        r'?|\[\S+[@:][^\n]+\].+))\s*[$#%])(.*\n?)')
-    _ps2 = '>'
+        r'?|\[\S+[@:][^\n]+\].+))\s*[$#%]\s*)(.*\n?)')
+    _ps2 = '> '
 
 
 class BatchLexer(RegexLexer):
@@ -241,7 +246,7 @@ class BatchLexer(RegexLexer):
     .. versionadded:: 0.7
     """
     name = 'Batchfile'
-    aliases = ['bat', 'batch', 'dosbatch', 'winbatch']
+    aliases = ['batch', 'bat', 'dosbatch', 'winbatch']
     filenames = ['*.bat', '*.cmd']
     mimetypes = ['application/x-dos-batch']
 
@@ -546,7 +551,8 @@ class BatchLexer(RegexLexer):
 
 class MSDOSSessionLexer(ShellSessionBaseLexer):
     """
-    Lexer for simplistic MSDOS sessions.
+    Lexer for MS DOS shell sessions, i.e. command lines, including a
+    prompt, interspersed with output.
 
     .. versionadded:: 2.1
     """
@@ -631,7 +637,8 @@ class TcshLexer(RegexLexer):
 
 class TcshSessionLexer(ShellSessionBaseLexer):
     """
-    Lexer for Tcsh sessions.
+    Lexer for Tcsh sessions, i.e. command lines, including a
+    prompt, interspersed with output.
 
     .. versionadded:: 2.1
     """
@@ -653,7 +660,7 @@ class PowerShellLexer(RegexLexer):
     .. versionadded:: 1.5
     """
     name = 'PowerShell'
-    aliases = ['powershell', 'posh', 'ps1', 'psm1']
+    aliases = ['powershell', 'pwsh', 'posh', 'ps1', 'psm1']
     filenames = ['*.ps1', '*.psm1']
     mimetypes = ['text/x-powershell']
 
@@ -662,7 +669,7 @@ class PowerShellLexer(RegexLexer):
     keywords = (
         'while validateset validaterange validatepattern validatelength '
         'validatecount until trap switch return ref process param parameter in '
-        'if global: function foreach for finally filter end elseif else '
+        'if global: local: function foreach for finally filter end elseif else '
         'dynamicparam do default continue cmdletbinding break begin alias \\? '
         '% #script #private #local #global mandatory parametersetname position '
         'valuefrompipeline valuefrompipelinebypropertyname '
@@ -731,7 +738,7 @@ class PowerShellLexer(RegexLexer):
             (r'\[[a-z_\[][\w. `,\[\]]*\]', Name.Constant),  # .net [type]s
             (r'-[a-z_]\w*', Name),
             (r'\w+', Name),
-            (r'[.,;@{}\[\]$()=+*/\\&%!~?^`|<>-]|::', Punctuation),
+            (r'[.,;:@{}\[\]$()=+*/\\&%!~?^`|<>-]', Punctuation),
         ],
         'child': [
             (r'\)', Punctuation, '#pop'),
@@ -762,19 +769,21 @@ class PowerShellLexer(RegexLexer):
 
 class PowerShellSessionLexer(ShellSessionBaseLexer):
     """
-    Lexer for simplistic Windows PowerShell sessions.
+    Lexer for PowerShell sessions, i.e. command lines, including a
+    prompt, interspersed with output.
 
     .. versionadded:: 2.1
     """
 
     name = 'PowerShell Session'
-    aliases = ['ps1con']
+    aliases = ['pwsh-session', 'ps1con']
     filenames = []
     mimetypes = []
 
     _innerLexerCls = PowerShellLexer
+    _bare_continuation = True
     _ps1rgx = re.compile(r'^((?:\[[^]]+\]: )?PS[^>]*> ?)(.*\n?)')
-    _ps2 = '>> '
+    _ps2 = '> '
 
 
 class FishShellLexer(RegexLexer):
@@ -815,7 +824,7 @@ class FishShellLexer(RegexLexer):
              Name.Builtin),
             (r'#.*\n', Comment),
             (r'\\[\w\W]', String.Escape),
-            (r'(\b\w+)(\s*)(=)', bygroups(Name.Variable, Text, Operator)),
+            (r'(\b\w+)(\s*)(=)', bygroups(Name.Variable, Whitespace, Operator)),
             (r'[\[\]()=]', Operator),
             (r'<<-?\s*(\'?)\\?(\w+)[\w\W]+?\2', String),
         ],

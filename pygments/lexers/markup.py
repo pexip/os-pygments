@@ -1,24 +1,23 @@
-# -*- coding: utf-8 -*-
 """
     pygments.lexers.markup
     ~~~~~~~~~~~~~~~~~~~~~~
 
     Lexers for non-HTML markup languages.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 import re
 
-from pygments.lexers.html import HtmlLexer, XmlLexer
+from pygments.lexers.html import XmlLexer
 from pygments.lexers.javascript import JavascriptLexer
 from pygments.lexers.css import CssLexer
 
 from pygments.lexer import RegexLexer, DelegatingLexer, include, bygroups, \
     using, this, do_insertions, default, words
 from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
-    Number, Punctuation, Generic, Other
+    Number, Punctuation, Generic, Other, Whitespace
 from pygments.util import get_bool_opt, ClassNotFound
 
 __all__ = ['BBCodeLexer', 'MoinWikiLexer', 'RstLexer', 'TexLexer', 'GroffLexer',
@@ -107,7 +106,7 @@ class MoinWikiLexer(RegexLexer):
 
 class RstLexer(RegexLexer):
     """
-    For `reStructuredText <http://docutils.sf.net/rst.html>`_ markup.
+    For reStructuredText markup.
 
     .. versionadded:: 0.7
 
@@ -122,7 +121,8 @@ class RstLexer(RegexLexer):
         .. versionadded:: 0.8
     """
     name = 'reStructuredText'
-    aliases = ['rst', 'rest', 'restructuredtext']
+    url = 'https://docutils.sourceforge.io/rst.html'
+    aliases = ['restructuredtext', 'rst', 'rest']
     filenames = ['*.rst', '*.rest']
     mimetypes = ["text/x-rst", "text/prs.fallenstein.rst"]
     flags = re.MULTILINE
@@ -340,7 +340,7 @@ class GroffLexer(RegexLexer):
 
     name = 'Groff'
     aliases = ['groff', 'nroff', 'man']
-    filenames = ['*.[1234567]', '*.man']
+    filenames = ['*.[1-9]', '*.man', '*.1p', '*.3pm']
     mimetypes = ['application/x-troff', 'text/troff']
 
     tokens = {
@@ -498,12 +498,13 @@ class MozPreprocCssLexer(DelegatingLexer):
 
 class MarkdownLexer(RegexLexer):
     """
-    For `Markdown <https://help.github.com/categories/writing-on-github/>`_ markup.
+    For Markdown markup.
 
     .. versionadded:: 2.2
     """
-    name = 'markdown'
-    aliases = ['md']
+    name = 'Markdown'
+    url = 'https://daringfireball.net/projects/markdown/'
+    aliases = ['markdown', 'md']
     filenames = ['*.md', '*.markdown']
     mimetypes = ["text/x-markdown"]
     flags = re.MULTILINE
@@ -548,21 +549,19 @@ class MarkdownLexer(RegexLexer):
             (r'^(.+)(\n)(-+)(\n)', bygroups(Generic.Subheading, Text, Generic.Subheading, Text)),
             # task list
             (r'^(\s*)([*-] )(\[[ xX]\])( .+\n)',
-            bygroups(Text, Keyword, Keyword, using(this, state='inline'))),
+            bygroups(Whitespace, Keyword, Keyword, using(this, state='inline'))),
             # bulleted list
             (r'^(\s*)([*-])(\s)(.+\n)',
-            bygroups(Text, Keyword, Text, using(this, state='inline'))),
+            bygroups(Whitespace, Keyword, Whitespace, using(this, state='inline'))),
             # numbered list
             (r'^(\s*)([0-9]+\.)( .+\n)',
-            bygroups(Text, Keyword, using(this, state='inline'))),
+            bygroups(Whitespace, Keyword, using(this, state='inline'))),
             # quote
             (r'^(\s*>\s)(.+\n)', bygroups(Keyword, Generic.Emph)),
             # code block fenced by 3 backticks
-            (r'^(\s*```\n(.+\n)+\s*```$)', String.Backtick),
+            (r'^(\s*```\n[\w\W]*?^\s*```$\n)', String.Backtick),
             # code block with language
-            (r'^(\s*```)(\w+)(\n)([\w\W]*?)(^\s*```$)', _handle_codeblock),
-            # code block indented with 4 spaces or 1 tab
-            (r'(\n\n)((\ {4}|\t)(.+\n)+)', bygroups(Text, String.Backtick)),
+            (r'^(\s*```)(\w+)(\n)([\w\W]*?)(^\s*```$\n)', _handle_codeblock),
 
             include('inline'),
         ],
@@ -570,19 +569,19 @@ class MarkdownLexer(RegexLexer):
             # escape
             (r'\\.', Text),
             # inline code
-            (r'([^`])(`[^`\n]+`)', bygroups(Text, String.Backtick)),
+            (r'([^`]?)(`[^`\n]+`)', bygroups(Text, String.Backtick)),
             # warning: the following rules eat outer tags.
             # eg. **foo _bar_ baz** => foo and baz are not recognized as bold
             # bold fenced by '**'
-            (r'(\*\*[^* \n][^*\n]*\*\*)', bygroups(Generic.Strong)),
-            # # bold fenced by '__'
-            (r'(\_\_[^_ \n][^_\n]*\_\_)', bygroups(Generic.Strong)),
+            (r'([^\*]?)(\*\*[^* \n][^*\n]*\*\*)', bygroups(Text, Generic.Strong)),
+            # bold fenced by '__'
+            (r'([^_]?)(__[^_ \n][^_\n]*__)', bygroups(Text, Generic.Strong)),
             # italics fenced by '*'
-            (r'(\*[^* \n][^*\n]*\*)', bygroups(Generic.Emph)),
+            (r'([^\*]?)(\*[^* \n][^*\n]*\*)', bygroups(Text, Generic.Emph)),
             # italics fenced by '_'
-            (r'(\_[^_ \n][^_\n]*\_)', bygroups(Generic.Emph)),
+            (r'([^_]?)(_[^_ \n][^_\n]*_)', bygroups(Text, Generic.Emph)),
             # strikethrough
-            (r'([^~]*)(~~[^~]+~~)', bygroups(Text, Generic.Deleted)),
+            (r'([^~]?)(~~[^~ \n][^~\n]*~~)', bygroups(Text, Generic.Deleted)),
             # mentions and topics (twitter and github stuff)
             (r'[@#][\w/:]+', Name.Entity),
             # (image?) links eg: ![Image of Yaktocat](https://octodex.github.com/images/yaktocat.png)
@@ -609,11 +608,12 @@ class MarkdownLexer(RegexLexer):
 
 class TiddlyWiki5Lexer(RegexLexer):
     """
-    For `TiddlyWiki5 <https://tiddlywiki.com/#TiddlerFiles>`_ markup.
+    For TiddlyWiki5 markup.
 
     .. versionadded:: 2.7
     """
     name = 'tiddler'
+    url = 'https://tiddlywiki.com/#TiddlerFiles'
     aliases = ['tid']
     filenames = ['*.tid']
     mimetypes = ["text/vnd.tiddlywiki"]

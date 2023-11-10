@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
     pygments.__main__
     ~~~~~~~~~~~~~~~~~
 
     Main entry point for ``python -m pygments``.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
