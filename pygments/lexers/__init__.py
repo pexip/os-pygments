@@ -1,18 +1,16 @@
-# -*- coding: utf-8 -*-
 """
     pygments.lexers
     ~~~~~~~~~~~~~~~
 
     Pygments lexers.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
-import re
 import sys
 import types
-import fnmatch
+from fnmatch import fnmatch
 from os.path import basename
 
 from pygments.lexers._mapping import LEXERS
@@ -29,16 +27,6 @@ __all__ = ['get_lexer_by_name', 'get_lexer_for_filename', 'find_lexer_class',
            'guess_lexer', 'load_lexer_from_file'] + list(LEXERS) + list(COMPAT)
 
 _lexer_cache = {}
-_pattern_cache = {}
-
-
-def _fn_matches(fn, glob):
-    """Return whether the supplied file name fn matches pattern filename."""
-    if glob not in _pattern_cache:
-        pattern = _pattern_cache[glob] = re.compile(fnmatch.translate(glob))
-        return pattern.match(fn)
-    return _pattern_cache[glob].match(fn)
-
 
 def _load_lexers(module_name):
     """Load a lexer (and all others in the module too)."""
@@ -48,14 +36,18 @@ def _load_lexers(module_name):
         _lexer_cache[cls.name] = cls
 
 
-def get_all_lexers():
+def get_all_lexers(plugins=True):
     """Return a generator of tuples in the form ``(name, aliases,
     filenames, mimetypes)`` of all know lexers.
+
+    If *plugins* is true (the default), plugin lexers supplied by entrypoints
+    are also returned.  Otherwise, only builtin ones are considered.
     """
     for item in LEXERS.values():
         yield item[1:]
-    for lexer in find_plugin_lexers():
-        yield lexer.name, lexer.aliases, lexer.filenames, lexer.mimetypes
+    if plugins:
+        for lexer in find_plugin_lexers():
+            yield lexer.name, lexer.aliases, lexer.filenames, lexer.mimetypes
 
 
 def find_lexer_class(name):
@@ -146,7 +138,7 @@ def load_lexer_from_file(filename, lexername="CustomLexer", **options):
         lexer_class = custom_namespace[lexername]
         # And finally instantiate it with the options
         return lexer_class(**options)
-    except IOError as err:
+    except OSError as err:
         raise ClassNotFound('cannot read %s: %s' % (filename, err))
     except ClassNotFound:
         raise
@@ -166,13 +158,13 @@ def find_lexer_class_for_filename(_fn, code=None):
     fn = basename(_fn)
     for modname, name, _, filenames, _ in LEXERS.values():
         for filename in filenames:
-            if _fn_matches(fn, filename):
+            if fnmatch(fn, filename):
                 if name not in _lexer_cache:
                     _load_lexers(modname)
                 matches.append((_lexer_cache[name], filename))
     for cls in find_plugin_lexers():
         for filename in cls.filenames:
-            if _fn_matches(fn, filename):
+            if fnmatch(fn, filename):
                 matches.append((cls, filename))
 
     if isinstance(code, bytes):
@@ -259,11 +251,11 @@ def guess_lexer_for_filename(_fn, _text, **options):
     matching_lexers = set()
     for lexer in _iter_lexerclasses():
         for filename in lexer.filenames:
-            if _fn_matches(fn, filename):
+            if fnmatch(fn, filename):
                 matching_lexers.add(lexer)
                 primary[lexer] = True
         for filename in lexer.alias_filenames:
-            if _fn_matches(fn, filename):
+            if fnmatch(fn, filename):
                 matching_lexers.add(lexer)
                 primary[lexer] = False
     if not matching_lexers:

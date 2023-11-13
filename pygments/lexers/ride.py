@@ -1,16 +1,16 @@
-# -*- coding: utf-8 -*-
 """
     pygments.lexers.ride
     ~~~~~~~~~~~~~~~~~~~~
 
     Lexer for the Ride programming language.
 
-    :copyright: Copyright 2006-2020 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2022 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 from pygments.lexer import RegexLexer, words, include
-from pygments.token import Comment, Keyword, Name, Number, Punctuation, String, Text
+from pygments.token import Comment, Keyword, Name, Number, Punctuation, \
+    String, Text
 
 __all__ = ['RideLexer']
 
